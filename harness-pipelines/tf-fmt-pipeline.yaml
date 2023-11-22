@@ -1,0 +1,40 @@
+pipelines:
+  - identifier: terraform_pipeline
+    stages:
+      - stage:
+          identifier: checkout_code
+          type: CI
+          spec:
+            containers:
+              - identifier: checkout
+                image: "alpine/git:latest"
+                commands:
+                  - git clone https://github.com/${{ secrets.GITHUB_REPOSITORY }} .
+                  - git checkout ${{ github.event.pull_request.head.ref }}
+
+      - stage:
+          identifier: setup_terraform
+          type: CI
+          spec:
+            containers:
+              - identifier: terraform_setup
+                image: hashicorp/terraform:${{ inputs.terraform_version }}
+                commands:
+                  - terraform init
+
+      - stage:
+          identifier: validate_terraform_formatting
+          type: CI
+          spec:
+            containers:
+              - identifier: terraform_validate
+                image: hashicorp/terraform:${{ inputs.terraform_version }}
+                commands:
+                  - cd ${{ inputs.Path }}
+                  - terraform fmt -recursive
+                  - | 
+                    if terraform fmt -recursive | grep -q '.tf'; then
+                      echo "The following Terraform files were not properly formatted:"
+                      terraform fmt -recursive
+                      exit 1
+                    fi
